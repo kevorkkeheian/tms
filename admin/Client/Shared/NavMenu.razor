@@ -1,0 +1,153 @@
+﻿@using Application.Client.Services
+@inject StateContainer _stateContainer
+@inject NavigationManager _navigationManager
+
+<div class="top-row ps-3 navbar navbar-white">
+    <div class="container-fluid">
+        <div class="d-flex text-center" ><div class="w-32 h-32 d-flex text-center justify-content-center bg-dark text-light rounded p-1 me-2">
+                A
+        </div>
+        <a class="navbar-brand font-semibold ms-1" href="" >Application</a></div>
+        <button title="Navigation menu " class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass">
+    <nav class="flex-column">
+
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick='@(() => Navigate(""))'>
+                <i class="bi bi-house me-2" style="font-size:1.2rem"></i> Home
+            </NavLink>
+        </div>
+
+        @if(_navigationManager.ToBaseRelativePath(_navigationManager.Uri) == "") 
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" @onclick='@(() => Navigate("org"))'>
+                    <i class="bi bi-building me-2" style="font-size:1.2rem"></i> Organization
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" @onclick='@(() => Navigate("admin/users"))'>
+                    <i class="bi bi-people me-2" style="font-size:1.2rem"></i> Admin
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" @onclick='@(() => Navigate("outbound"))'>
+                    <i class="bi bi-truck me-2" style="font-size:1.2rem"></i> Outbound
+                </NavLink>
+            </div>
+        }
+
+        
+
+        @if(_navigationManager.ToBaseRelativePath(_navigationManager.Uri).StartsWith("admin")) 
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin/users">
+                    <i class="bi bi-building me-2" style="font-size:1.2rem"></i> Users
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin/roles">
+                    <i class="bi bi-building me-2" style="font-size:1.2rem"></i> Roles
+                </NavLink>
+            </div>
+        }
+
+        @if(_navigationManager.ToBaseRelativePath(_navigationManager.Uri).StartsWith("org"))
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="org/entities">
+                    <i class="bi bi-building me-2" style="font-size:1.2rem"></i> Entities
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="org/stores">
+                    <i class="bi bi-shop me-2" style="font-size:1.2rem"></i> Stores
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="org/trucks">
+                    <i class="bi bi-truck me-2" style="font-size:1.2rem"></i> Trucks
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="org/drivers">
+                    <i class="bi bi-person me-2" style="font-size:1.2rem"></i> Drivers
+                </NavLink>
+            </div>
+        }
+
+        @if(_navigationManager.ToBaseRelativePath(_navigationManager.Uri).StartsWith("outbound"))
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="outbound/routes">
+                    <i class="bi bi-signpost me-2" style="font-size:1.2rem"></i> Routes
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="outbound/loads">
+                    <i class="bi bi-box-arrow-in-right me-2" style="font-size:1.2rem"></i> Loading
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="outbound/consolidations">
+                    <i class="bi bi-app me-2" style="font-size:1.2rem"></i> Consolidations
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="outbound/lp">
+                    <i class="bi bi-border-all me-2" style="font-size:1.2rem"></i> License Plates
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="outbound/works">
+                    <i class="bi bi-hammer me-2" style="font-size:1.2rem"></i> Work Details
+                </NavLink>
+            </div>
+            
+        }
+        
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private string Uri => !String.IsNullOrEmpty(_stateContainer.Property) ? _stateContainer.Property : "home";
+
+    protected override void OnInitialized()
+    {
+        _stateContainer.OnChange += StateHasChanged;
+    }
+
+    private void Navigate(string path)
+    {
+        _navigationManager.NavigateTo(path, true);
+    }
+
+    
+
+    private void SetUri(string name)
+    {
+        _stateContainer.Property = name;   
+    }
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+}
+
+
+
+

@@ -1,0 +1,120 @@
+@page "/outbound/loads"
+@using System.Net.Http.Json
+@inject HttpClient _client
+@inject ISnackbar Snackbar
+@inject NavigationManager _navigationManager
+@inject IJSRuntime _jsRuntime
+
+
+<h4 class="mt-5">LoadHeaders</h4>
+
+<MudPaper Elevation="25" Class="mb-2 mt-4">
+    <MudToolBar>
+        <MudText>
+            <Navigation />
+        </MudText>
+        <MudSpacer />
+        <MudIconButton Icon="@Icons.Material.Outlined.Add" OnClick='@(() => Navigate("outbound/loads/add"))' />
+        <MudIconButton Icon="@Icons.Material.Outlined.MoreVert" Color="Color.Inherit" />
+    </MudToolBar>
+</MudPaper>
+
+<MudTable Items="@LoadHeaders" Dense="@dense" Hover="@hover" Bordered="@bordered" Striped="@striped" Filter="new Func<LoadHeader,bool>(FilterFunc1)" @bind-SelectedItem="selectedItem1">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">LoadHeaders</MudText>
+        <MudSpacer />
+        <MudTextField @bind-Value="searchString1" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh>Document No</MudTh>
+        <MudTh>Loading Date</MudTh>
+        <MudTh>Route No</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Document No">@context.DocumentNo</MudTd>
+        <MudTd DataLabel="Delivery Date">@context.LoadedOn</MudTd>
+        <MudTd DataLabel="Full Name">@context.RouteHeader.DocumentNo</MudTd>
+        <MudTd DataLabel="Full Name">@context.LoadStatus</MudTd>
+        <MudTd DataLabel="Edit">
+            <MudIconButton Icon="@Icons.Material.Outlined.OpenInNew" OnClick='@(() => Navigate($"outbound/loads/{context.Id}/lines/add"))'/>
+            <MudIconButton Icon="@Icons.Material.Outlined.Edit" OnClick='@(() => Navigate($"outbound/loadHeaders/{context.Id}/edit"))'/>
+            <MudIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" OnClick="@(() => OnDeleteAsync(context.Id))" />
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+<div class="d-flex flex-wrap mt-4">
+    <div style="min-width:200px;">
+        <MudText Inline="true" Class="align-self-center">Selected1: @selectedItem1?.DocumentNo</MudText>
+    </div>
+</div>
+
+
+
+@code {
+    [Parameter] public bool isSuccess { get; set; }
+    private bool dense = false;
+    private bool hover = true;
+    private bool striped = false;
+    private bool bordered = false;
+    private string searchString1 = "";
+    private LoadHeader selectedItem1 = null;
+    private HashSet<LoadHeader> selectedItems = new HashSet<LoadHeader>();
+
+    private List<LoadHeader> LoadHeaders = new List<LoadHeader>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        LoadHeaders = await _client.GetFromJsonAsync<List<LoadHeader>>("api/loadHeader");
+    }
+
+    private bool FilterFunc1(LoadHeader LoadHeader) => FilterFunc(LoadHeader, searchString1);
+
+    private bool FilterFunc(LoadHeader LoadHeader, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (LoadHeader.DocumentNo.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (LoadHeader.LoadedOn.ToString().Contains(searchString))
+            return true;
+        if (LoadHeader.RouteHeader.DocumentNo.Contains(searchString))
+            return true;
+        return false;
+    }
+
+    private async void OnDeleteAsync(string id)
+    {
+        // prompt the user to confirm
+        var confirmResult = await _jsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this item?");
+            var loadHeader = LoadHeaders.FirstOrDefault(j => j.Id == id);
+
+        if(confirmResult) {
+            var request = await _client.DeleteAsync($"api/loadHeader/{id}");
+
+            if(request.IsSuccessStatusCode) {
+                Snackbar.Add($"LoadHeader {loadHeader.DocumentNo} is deleted", Severity.Success);
+                LoadHeaders.Remove(loadHeader);
+                StateHasChanged();
+            }
+            else {
+                Snackbar.Add($"LoadHeader is not deleted", Severity.Error);
+            }
+        }
+        else {
+            Snackbar.Add($"Operation was canceled", Severity.Info);
+        }
+        
+    }
+
+
+    private void Navigate(string url)
+    {
+        _navigationManager.NavigateTo(url);
+    }
+}

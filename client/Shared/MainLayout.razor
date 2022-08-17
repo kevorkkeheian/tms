@@ -1,0 +1,22 @@
+﻿@using MudBlazor
+@inherits LayoutComponentBase
+
+<div class="page bg-light">
+    <div class="sidebar bg-white border border-right">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row bg-white px-4 auth">
+            <LoginDisplay />
+        </div>
+
+        <article class="container px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+
+<MudThemeProvider/>
+<MudSnackbarProvider/>

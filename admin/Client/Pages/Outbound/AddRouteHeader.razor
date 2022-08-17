@@ -1,0 +1,107 @@
+@page "/outbound/routes/add"
+@inject ISnackbar Snackbar
+@inject IJSRuntime _jsRuntime
+@inject HttpClient _client
+@inject NavigationManager _navigationManager
+
+
+<h4 class="mt-5">Add new route</h4>
+<MudPaper Elevation="25" Class="mb-2 mt-4">
+    <MudToolBar>
+        <MudText>
+            <Navigation />
+        </MudText>
+        <MudSpacer />
+        <MudIconButton Icon="@Icons.Material.Outlined.MoreVert" Color="Color.Inherit" />
+    </MudToolBar>
+</MudPaper>
+
+<MudPaper Elevation="25" Class="mb-2 mt-4 p-5">
+    <EditForm Model="@RouteHeader" OnValidSubmit="OnValidSubmit" OnInvalidSubmit="OnInValidSubmit">
+        <DataAnnotationsValidator/>
+        <MudDatePicker Label="Delivery Date" @bind-Date="DeliveryDate"/>
+        <MudSelect HelperText="Choose driver" T="string" Label="Driver" Variant="Variant.Text"  @bind-Value="RouteHeader.DriverId">
+        @if(Drivers is not null) {
+            @foreach (var driver in Drivers)
+            {
+                <MudSelectItem Value="@driver.Id"> @driver.FullName</MudSelectItem>
+            }
+        }
+        </MudSelect>
+        <MudSelect HelperText="Choose truck" T="string" Label="Truck" Variant="Variant.Text"  @bind-Value="RouteHeader.TruckId">
+        @if(Trucks is not null) {
+            @foreach (var truck in Trucks)
+            {
+                <MudSelectItem Value="@truck.Id"> @truck.PlateNo</MudSelectItem>
+            }
+        }
+        </MudSelect>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Add</MudButton>
+        </MudCardActions>
+    </EditForm>
+</MudPaper>
+
+
+
+
+
+
+
+
+@code
+{
+    private DateTime? DeliveryDate = DateTime.Today;
+    private RouteHeader RouteHeader = new RouteHeader();
+    private RouteHeader NewRouteHeader { get; set; }
+    private RouteLine RouteLine = new RouteLine();
+    private List<Driver> Drivers { get; set; }
+    private List<Truck> Trucks { get; set; }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        Drivers = await _client.GetFromJsonAsync<List<Driver>>("api/driver");
+        Trucks = await _client.GetFromJsonAsync<List<Truck>>("api/truck");
+    }
+
+    
+
+    private async Task OnValidSubmit() 
+    {
+        var openRouteHeader = await _client.GetFromJsonAsync<List<RouteHeader>>($"api/routeheader/filter?routeStatus={RouteStatus.Pending}&truckId={RouteHeader.TruckId}");
+
+        if(openRouteHeader.Count() > 0) {
+            Snackbar.Add("There is already an open route for this truck", Severity.Error);
+            return;
+        }
+
+        RouteHeader.DeliveryDate = DeliveryDate;
+        var response = await _client.PostAsJsonAsync("api/routeHeader", RouteHeader);
+
+        if(response.IsSuccessStatusCode)
+        {
+            NewRouteHeader = await response.Content.ReadFromJsonAsync<RouteHeader>();
+            Snackbar.Add($"New Route {NewRouteHeader.DocumentNo} is created", Severity.Success);
+            StateHasChanged();
+            _navigationManager.NavigateTo($"outbound/routes/{NewRouteHeader.Id}/lines/add");
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            Snackbar.Add($"{error}", Severity.Error);
+            
+        }
+    }
+
+
+    private void OnInValidSubmit() 
+    {
+        Snackbar.Add($"Please make sure to fill all necessary data!", Severity.Error);
+
+    }
+
+
+    
+}
+

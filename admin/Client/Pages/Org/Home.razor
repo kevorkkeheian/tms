@@ -1,0 +1,14 @@
+@page "/org"
+@inject StateContainer _stateContainer
+@attribute [Authorize(Roles = "Admin")]
+
+
+
+@code {
+    
+    protected override void OnInitialized()
+    {
+        _stateContainer.Property = "org";
+    }
+
+}

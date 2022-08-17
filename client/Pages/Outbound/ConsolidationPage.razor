@@ -1,0 +1,281 @@
+@page "/outbound/consolidation/{storeId}"
+@inject ISnackbar _snackbar
+@inject IJSRuntime _jsRuntime
+@inject HttpClient _client
+@inject NavigationManager _navigationManager
+
+
+<MudContainer MaxWidth="MaxWidth.Small">
+
+
+    @if(IsConsolidating) {
+        <MudText Class="p-2 fw-bold" variant="h6"><span class="text-primary">@StoreName</span> Scan New License Plates</MudText>
+    }
+    else {
+        <MudText Class="p-2 fw-bold" variant="h6"><span class="text-primary">@StoreName</span> Scan Old License Plates</MudText>
+    }
+
+    <MudFocusTrap Class="my-5" Disabled="Disabled" DefaultFocus="DefaultFocus">
+
+        @if(IsConsolidating) {
+            <MudTextField @bind-Value="NewLicensePlate" Label="New License Plate" Variant="Variant.Outlined"></MudTextField>
+        }
+        else {
+            <MudTextField @bind-Value="OldLicensePlate" Label="Old License Plate" Variant="Variant.Outlined"></MudTextField>
+        }
+
+
+        <div class="d-flex justify-content-between my-2">
+            @if(IsConsolidating) {
+                <button class="btn btn-primary text-start" @onclick="StopConsolidating">Back</button>
+                <button class="btn btn-primary text-start @PostButtonIsDisabled" @onclick="PostConsolicationAsync">Post</button>
+                <button class="btn btn-primary text-end" @onclick="AddNewLicensePlate">Add</button>
+            }
+
+            else {
+                <button class="btn btn-primary text-start" @onclick="StartConsolidating">Consolidate</button>
+                <button class="btn btn-primary text-start @PostButtonIsDisabled" @onclick="PostConsolicationAsync">Post</button>
+                <button class="btn btn-primary text-end" @onclick="AddOldLicensePlate">Add</button>
+            }
+
+        </div>
+    </MudFocusTrap>
+
+    
+    
+        <MudPaper Class="my-5" Width="100%">
+            <MudList Class="border-solid border-2 mud-border-primary rounded" Clickable="@true" Dense="@false" DisableGutters="@false" Color="Color.Primary">
+                    <MudListItem Text="Old License Plates" InitiallyExpanded="true">
+                        
+                        <NestedList>
+
+                            <MudDivider />
+                            @if(WorkDetailsConsolidating is not null) {
+                                @foreach (var item in WorkDetailsConsolidating.Select(w => w.LicensePlate).OrderBy(w => w).Distinct().ToList())
+                                {
+                                    <MudListItem Text="@item" OnClick="@(() => DeleteOldLicensePlate(item))"/>
+                                    <MudDivider />
+                                 }
+                            }
+                        </NestedList>
+                    </MudListItem>
+            </MudList>
+        </MudPaper>
+     
+
+        <MudPaper Class="my-5" Width="100%">
+            <MudList Class="border-solid border-2 mud-border-secondary rounded" Clickable="@true" Dense="@false" DisableGutters="@false" Color="Color.Secondary">
+                    <MudListItem Text="New License Plates" InitiallyExpanded="true">
+                        <NestedList>
+                            @if(LicensePlatesConsolidating is not null) {
+                                @foreach (var item in LicensePlatesConsolidating.OrderBy(o => o.Code).ToList())
+                                {
+                                    <MudListItem Text="@item.Code" OnClick="@(() => DeleteNewLicensePlate(item))"/>
+                                    <MudDivider />
+                                 }
+                            }
+                        </NestedList>
+                    </MudListItem>
+            </MudList>
+        </MudPaper>
+
+</MudContainer>
+
+@code {
+    [Parameter] public string storeId { get; set; }
+    bool Disabled { get; set; }
+
+    bool IsConsolidating { get; set; }
+
+    bool IsErrorStatusCode { get; set; }
+
+    private string PostButtonIsDisabled => WorkDetailsConsolidating.Count() > 0 && LicensePlatesConsolidating.Count() > 0 ? "" : "disabled";
+    private string StoreName => Store is null ? "" : $"{Store.Code} -";
+
+    @* private List<string> OldLicensePlates = new List<string>(); *@
+    private List<WorkDetail> WorkDetailsConsolidating = new List<WorkDetail>();
+    @* private List<string> NewLicensePlates = new List<string>(); *@
+    private List<LicensePlate> LicensePlatesConsolidating = new List<LicensePlate>();
+    
+    private List<Consolidation> Consolidations = new List<Consolidation>();
+    private List<WorkDetail> WorkDetails = new List<WorkDetail>();
+    private List<LicensePlate> LicensePlates = new List<LicensePlate>();
+    
+    private Store Store { get; set; }
+
+
+    private string OldLicensePlate { get; set; }
+    private string NewLicensePlate { get; set; }
+
+    DefaultFocus DefaultFocus { get; set; } = DefaultFocus.FirstChild;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Store = await _client.GetFromJsonAsync<Store>($"/api/store/{storeId}");
+        }
+        catch (HttpRequestException e)
+        {
+            if(e.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _snackbar.Add("Store not found! 🤷🏻‍♀️", Severity.Error);
+            }
+            else
+            {
+                _snackbar.Add("Error loading store", Severity.Warning);
+            }
+
+            _navigationManager.NavigateTo("/outbound/consolidation");
+        } 
+
+        WorkDetails = await _client.GetFromJsonAsync<List<WorkDetail>>($"/api/workdetail?storeId={storeId}&lpStatus={LicensePlateStatus.Pending}");  
+        LicensePlates = await _client.GetFromJsonAsync<List<LicensePlate>>($"/api/licenseplate?storeId={storeId}&lpStatus={LicensePlateStatus.Pending}");
+    }
+
+    private void StartConsolidating() {
+        IsConsolidating = true;
+    }
+
+    private void StopConsolidating() {
+        IsConsolidating = false;
+    }
+
+    private void AddOldLicensePlate()
+    {
+        if(!WorkDetails.Select(w => w.LicensePlate).Contains(OldLicensePlate)) {
+            _snackbar.Add("License plate not found! 🤷🏻‍♀️", Severity.Error);
+            return;
+        }
+
+        if (WorkDetailsConsolidating.Select(w => w.LicensePlate).Contains(OldLicensePlate))
+        {
+            _snackbar.Add("License plate already exists", Severity.Warning);
+        }
+        else {
+            // check if old license plate is not empty, null or whitespace
+            if (string.IsNullOrWhiteSpace(OldLicensePlate))
+            {
+                _snackbar.Add("License plate cannot be empty", Severity.Warning);
+            }
+            else {
+                // get all work details that have the old license plate
+                // Reason: some work Ids with different transfer no can have the same license plate
+                var workDetails = WorkDetails.Where(w => w.LicensePlate == OldLicensePlate).ToList();
+                foreach (var workDetail in workDetails)
+                {
+                    WorkDetailsConsolidating.Add(workDetail);
+                }
+                
+                OldLicensePlate = "";
+            }
+        }
+    }
+
+
+    private void AddNewLicensePlate()
+    {
+        if(!LicensePlates.Select(w => w.Code).Contains(NewLicensePlate)) {
+            _snackbar.Add("License plate not found! 🤷🏻‍♀️", Severity.Error);
+            return;
+        }
+
+        if (LicensePlatesConsolidating.Select(l => l.Code).Contains(NewLicensePlate))
+        {
+            _snackbar.Add("License plate already exists", Severity.Warning);
+        }
+        else {
+
+            if (string.IsNullOrWhiteSpace(NewLicensePlate))
+            {
+                _snackbar.Add("License plate cannot be empty", Severity.Warning);
+            }
+            else {
+                var licensePlate = LicensePlates.FirstOrDefault(l => l.Code == NewLicensePlate);
+                LicensePlatesConsolidating.Add(licensePlate);
+                NewLicensePlate = "";
+            }
+        }
+    }
+
+
+    private async Task DeleteOldLicensePlate(string licensePlate) {
+
+        var confirm = await _jsRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete this license plate {licensePlate}?");
+
+        if (confirm) {
+            var workDetails = WorkDetailsConsolidating.Where(w => w.LicensePlate == licensePlate).ToList();
+            foreach (var item in workDetails)
+            {
+                WorkDetailsConsolidating.Remove(item);
+            }
+            
+            OldLicensePlate = null;
+            DefaultFocus = DefaultFocus.Element;
+        }
+    }
+
+
+    private async Task DeleteNewLicensePlate(LicensePlate licensePlate) {
+
+        var confirm = await _jsRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete this license plate {licensePlate.Code}?");
+
+        if (confirm) {
+            LicensePlatesConsolidating.Remove(licensePlate);
+            NewLicensePlate = null;
+            DefaultFocus = DefaultFocus.Element;
+        }
+    }
+
+    private async Task PostConsolicationAsync() {
+
+        if(WorkDetailsConsolidating.Count() == 0 || LicensePlatesConsolidating.Count() == 0) {
+            _snackbar.Add("You need to consolidate pallets first!", Severity.Warning);
+        }
+        else {
+            var confirm = await _jsRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to post the consolidation?");
+
+            if (confirm) {
+
+                foreach (var workDetailId in WorkDetailsConsolidating.Select(w => w.Id))
+                {
+                    foreach (var licensePlateId in LicensePlatesConsolidating.Select(l => l.Id))
+                    {
+                        var consolidation = new Consolidation {
+                            WorkDetailId = workDetailId,
+                            LicensePlateId = licensePlateId,
+                            ConsolidationStatus = ConsolidationStatus.Pending,
+                            StoreId = storeId
+                        };
+
+                        var request = await _client.PostAsJsonAsync("/api/consolidation", consolidation);
+                        
+                        if(!request.IsSuccessStatusCode) {
+                            IsErrorStatusCode = true;
+                            var response = request.Content.ReadAsStringAsync().Result;
+                            _snackbar.Add(response, Severity.Error);
+                        }
+                    }
+                }
+
+                IsConsolidating = false;
+                DefaultFocus = DefaultFocus.Element;
+
+                if(!IsErrorStatusCode) {
+                    _snackbar.Add("Consolidation posted successfully!", Severity.Success);
+                }
+                else {
+                    _snackbar.Add("Consolidation failed! Please check with your administrator", Severity.Error);
+                }
+
+                WorkDetailsConsolidating = new List<WorkDetail>();
+                LicensePlatesConsolidating = new List<LicensePlate>();
+
+                _navigationManager.NavigateTo("outbound/consolidation");
+            }
+        }
+        
+    }
+
+}

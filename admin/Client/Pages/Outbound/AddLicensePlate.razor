@@ -1,0 +1,129 @@
+@page "/outbound/lp/add"
+@inject ISnackbar Snackbar
+@inject IJSRuntime _jsRuntime
+@inject HttpClient _client
+@inject NavigationManager _navigationManager
+@attribute [Authorize(Roles = "Owner, Admin")]
+
+
+<h4 class="mt-5">Add new license plate</h4>
+<MudPaper Elevation="25" Class="mb-2 mt-4">
+    <MudToolBar>
+        <MudText>
+            <Navigation />
+        </MudText>
+        <MudSpacer />
+        <MudIconButton Icon="@Icons.Material.Outlined.AddToQueue" Color="Color.Inherit" data-bs-toggle="modal" data-bs-target="#lpGenerateModal"/>
+        <MudIconButton Icon="@Icons.Material.Outlined.MoreVert" Color="Color.Inherit"/>
+        
+    </MudToolBar>
+</MudPaper>
+
+
+<MudPaper Elevation="25" Class="mb-2 mt-4 p-5">
+    <EditForm Model="@LicensePlate" OnValidSubmit="OnValidSubmit" OnInvalidSubmit="OnInValidSubmit">
+        <DataAnnotationsValidator/>
+
+        <MudSelect HelperText="Choose store" T="string" Label="Entity" Variant="Variant.Text"  @bind-Value="LicensePlate.StoreId">
+            @if(Stores is not null) {
+                @foreach (var store in Stores)
+                {
+                    <MudSelectItem Value="@store.Id"> @store.Code</MudSelectItem>
+                }
+            }
+            
+        </MudSelect>
+
+        <MudTextField Label="Code" HelperText="Max. 15 characters" @bind-Value="LicensePlate.Code" For="@(() => LicensePlate.Code)" />
+            
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Add</MudButton>
+        </MudCardActions>
+    </EditForm>
+</MudPaper>
+
+
+
+<!-- Modal -->
+<div class="modal fade" id="lpGenerateModal" tabindex="-1" aria-labelledby="lpGenerateModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="lpGenerateModalLabel">Modal title</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <MudSelect HelperText="Choose store" T="string" Label="Entity" Variant="Variant.Text"  @bind-Value="LicensePlateGenerateModel.StoreId">
+            @if(Stores is not null) {
+                @foreach (var store in Stores)
+                {
+                    <MudSelectItem Value="@store.Id"> @store.Code</MudSelectItem>
+                }
+            }
+            
+        </MudSelect>
+        <MudNumericField @bind-Value="LicensePlateGenerateModel.Quantity" Label="Outlined" Variant="Variant.Outlined" Step="10" Min="10" Max="100" />
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal" aria-label="Close" @onclick="GenerateLicensePlateAsync">Generate</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+@code {
+    bool success;
+
+    private LicensePlate LicensePlate = new LicensePlate();
+    private List<Store> Stores { get; set; }
+
+    private LicensePlateGenerateModel LicensePlateGenerateModel = new LicensePlateGenerateModel();
+
+    
+    protected override async Task OnInitializedAsync()
+    {
+        Stores = await _client.GetFromJsonAsync<List<Store>>("/api/store");
+    }
+
+    
+
+    private async Task OnValidSubmit() 
+    {
+        var response = await _client.PostAsJsonAsync("api/licensePlate", LicensePlate);
+
+        if(response.IsSuccessStatusCode)
+        {
+            success = true;
+            Snackbar.Add($"New LicensePlate is created", Severity.Success);
+            _navigationManager.NavigateTo($"org/licensePlates");
+        }
+        else
+        {
+            success = false;
+            var error = await response.Content.ReadAsStringAsync();
+            Snackbar.Add($"{error}", Severity.Error);
+            
+        }
+    }
+
+    private async void GenerateLicensePlateAsync()
+    {        
+        var lastLicensePlate = await _client.PostAsJsonAsync("api/licensePlate/generate", LicensePlateGenerateModel);
+        _navigationManager.NavigateTo("outbound/lp");
+    }
+
+
+    private void OnInValidSubmit() 
+    {
+        success = false;
+        Snackbar.Add($"Please make sure to fill all necessary data!", Severity.Error);
+
+    }
+
+
+}
+
+

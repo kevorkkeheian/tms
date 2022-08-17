@@ -1,0 +1,74 @@
+@page "/inbound/{InboundPage}"
+@using Blazored.LocalStorage;
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@inject HttpClient _client
+@inject NavigationManager _navigationManager
+@inject ILocalStorageService _localStorageService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+
+
+<PageTitle>Choose Store</PageTitle>
+
+<div class="mb-3">
+    <MudText Typo="Typo.h5">Choose Store</MudText>
+</div>
+
+<div class="my-3">
+    <MudTextField @bind-Value="SearchText" Label="Search" Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true" Adornment="Adornment.End" AdornmentIcon="@Icons.Filled.Search" AdornmentColor="Color.Primary"></MudTextField>
+</div>
+
+
+@if(InboundPage == "receiving" && Stores is not null) {
+    @foreach (var item in StoresFiltered)
+    {
+        <div class="my-3">
+            <MudButton Variant="Variant.Text" DisableElevation="true" Color="Color.Primary" FullWidth="true" OnClick="@(() => OnAttibuteClick(item.Id))">@item.Store.Code</MudButton>
+        </div>
+    }
+}
+
+
+
+@code {
+    [Parameter] public string InboundPage { get; set; }
+
+    private List<Store> Stores { get; set; }
+    private List<Truck> Trucks { get; set; }
+    private List<UserStore> UserStores { get; set; }
+    
+    
+    private string SearchText { get; set; }
+
+    private List<UserStore> StoresFiltered => String.IsNullOrEmpty(SearchText) ? UserStores : UserStores.Where(x => x.Store.Code.ToLower().Contains(SearchText.ToLower())).ToList();
+    private List<Truck> TrucksFiltered => String.IsNullOrEmpty(SearchText) ? Trucks : Trucks.Where(x => x.PlateNo.ToLower().Contains(SearchText.ToLower())).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        // get user id from claims
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier).Value;
+
+        // add userId to the header
+        @* _client.DefaultRequestHeaders.Add("userId", userId); *@
+
+        if(InboundPage == "receiving")
+        {
+            Stores = await _client.GetFromJsonAsync<List<Store>>("/api/store");
+            UserStores = await _client.GetFromJsonAsync<List<UserStore>>($"/api/users/{userId}/stores");
+        }
+    }
+
+
+    private void OnAttibuteClick(string attributeId) {
+        if(InboundPage == "consolidation") {
+            _navigationManager.NavigateTo($"/outbound/consolidation/{attributeId}");
+        }
+        else if(InboundPage == "loading") {
+            _navigationManager.NavigateTo($"/outbound/loading/{attributeId}");
+        }
+    }
+}

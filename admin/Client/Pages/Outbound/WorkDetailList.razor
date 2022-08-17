@@ -1,0 +1,131 @@
+@page "/outbound/works"
+@using System.Net.Http.Json
+@inject HttpClient _client
+@inject IJSRuntime _jsRuntime
+@inject ISnackbar Snackbar
+@inject NavigationManager _navigationManager
+@attribute [Authorize(Roles = "Owner, Admin")]
+
+
+<style>
+    .mud-table-cell-custom-group {
+        font-weight: 500;
+    }
+
+    .mud-table-cell-custom-group-footer {
+        padding-bottom: 50px;
+        text-align: right;
+    }
+</style>
+
+
+<h4 class="mt-5">Work Details</h4>
+<MudPaper Elevation="25" Class="mb-2 mt-4">
+    <MudToolBar>
+        <MudText>
+            <Navigation />
+        </MudText>
+        <MudSpacer />
+
+        <MudIconButton Icon="@Icons.Material.Outlined.MoreVert" Color="Color.Inherit" />
+    </MudToolBar>
+</MudPaper>
+
+<MudTable Items="@WorkDetails" Dense="@dense" Hover="true" Bordered="@bordered" Striped="@striped" 
+            FixedHeader="true"
+            GroupBy="@_groupDefinition"
+            GroupHeaderStyle="background-color:var(--mud-palette-background-grey)" 
+            Breakpoint="Breakpoint.Sm"
+            GroupFooterClass="mb-4"
+            MultiSelection="true"
+            Filter="new Func<WorkDetail, bool>(FilterFunc1)" @bind-SelectedItem="selectedItem1">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Work Details</MudText>
+        <MudSpacer />
+        <MudTextField @bind-Value="searchString1" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <ColGroup>
+        <col style="width: 60px;" />
+        <col />
+        <col />
+        <col />
+        <col />
+        <col />
+    </ColGroup>
+    <HeaderContent>
+        <MudTh>Store</MudTh>
+        <MudTh>Document No</MudTh>
+        <MudTh>Work ID</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <GroupHeaderTemplate>
+        <MudTh Class="mud-table-cell-custom-group" colspan="5">@($"{context.GroupName}: {context.Key}")</MudTh>
+    </GroupHeaderTemplate>
+    <RowTemplate>
+        <MudTd DataLabel="Store">@context.Store.Code</MudTd>
+        <MudTd DataLabel="Document No">@context.DocumentNo</MudTd>
+        <MudTd DataLabel="Work ID">@context.WorkId</MudTd>
+
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+<div class="d-flex flex-wrap mt-4">
+    <div style="min-width:200px;">
+        <MudText Inline="true" Class="align-self-center">Selected1: @selectedItem1?.WorkId</MudText>
+    </div>
+</div>
+
+
+
+@code {
+    [Parameter] public bool isSuccess { get; set; }
+    private bool dense = false;
+    private bool hover = true;
+    private bool striped = false;
+    private bool bordered = false;
+    private string searchString1 = "";
+    private WorkDetail selectedItem1 = null;
+    private HashSet<WorkDetail> selectedItems = new HashSet<WorkDetail>();
+
+    private List<WorkDetail> WorkDetails = new List<WorkDetail>();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        WorkDetails = await _client.GetFromJsonAsync<List<WorkDetail>>("api/workDetail");
+    }
+
+    private TableGroupDefinition<WorkDetail> _groupDefinition = new()
+    {
+        GroupName = "Store",
+        Indentation = false,
+        Expandable = true,
+        Selector = (e) => e.Store.Code
+    };
+
+    private bool FilterFunc1(WorkDetail WorkDetail) => FilterFunc(WorkDetail, searchString1);
+
+    private bool FilterFunc(WorkDetail WorkDetail, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (WorkDetail.Store.Code.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (WorkDetail.WorkId.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (WorkDetail.DocumentNo.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (WorkDetail.Status.ToString().Contains(searchString))
+            return true;
+        return false;
+    }
+
+
+    private void Navigate(string url)
+    {
+        _navigationManager.NavigateTo(url);
+    }
+}

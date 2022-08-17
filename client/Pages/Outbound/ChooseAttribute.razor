@@ -1,0 +1,96 @@
+@page "/outbound/{OutboundPage}"
+@inject HttpClient _client
+@inject NavigationManager _navigationManager
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+
+
+
+<PageTitle>Choose Store</PageTitle>
+
+<div class="mb-3">
+    <MudText Typo="Typo.h5">Choose Store</MudText>
+</div>
+
+<div class="my-3">
+    <MudTextField @bind-Value="SearchText" Label="Search" Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true" Adornment="Adornment.End" AdornmentIcon="@Icons.Filled.Search" AdornmentColor="Color.Primary"></MudTextField>
+</div>
+
+
+@if(OutboundPage == "consolidation" && Stores is not null) {
+    @foreach (var item in StoresFiltered)
+    {
+        <div class="my-3">
+            <MudButton Variant="Variant.Text" DisableElevation="true" Color="Color.Primary" FullWidth="true" OnClick="@(() => OnAttibuteClick(item.Id))">@item.Code</MudButton>
+        </div>
+    }
+}
+else if(OutboundPage == "loading" && Trucks is not null) {
+    @foreach (var item in RouteHeadersFiltered)
+    {
+        <div class="my-3">
+            <MudButton Variant="Variant.Text" DisableElevation="true" Color="Color.Primary" FullWidth="true" OnClick="@(() => OnAttibuteClick(item.TruckId))">@item.Truck.PlateNo</MudButton>
+        </div>
+    }
+}
+
+else if(OutboundPage == "departure" && Trucks is not null) {
+    @foreach (var item in RouteHeadersFiltered)
+    {
+        <div class="my-3">
+            <MudButton Variant="Variant.Text" DisableElevation="true" Color="Color.Primary" FullWidth="true" OnClick="@(() => OnAttibuteClick(item.TruckId))">@item.Truck.PlateNo</MudButton>
+        </div>
+    }
+}
+
+
+
+@code {
+    [Parameter] public string OutboundPage { get; set; }
+
+    private List<Store> Stores { get; set; }
+    private List<Truck> Trucks { get; set; }
+    private List<RouteHeader> RouteHeaders { get; set; }
+    
+    
+    private string SearchText { get; set; }
+
+    private List<Store> StoresFiltered => String.IsNullOrEmpty(SearchText) ? Stores : Stores.Where(x => x.Code.ToLower().Contains(SearchText.ToLower())).ToList();
+    private List<RouteHeader> RouteHeadersFiltered => String.IsNullOrEmpty(SearchText) ? RouteHeaders : RouteHeaders.Where(x => x.Truck.PlateNo.ToLower().Contains(SearchText.ToLower())).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if(OutboundPage == "consolidation")
+        {
+            Stores = await _client.GetFromJsonAsync<List<Store>>("/api/store");
+        }
+        
+        else if(OutboundPage == "loading")
+        {
+            Trucks = await _client.GetFromJsonAsync<List<Truck>>("/api/truck");
+            RouteHeaders = await _client.GetFromJsonAsync<List<RouteHeader>>($"/api/routeheader/filter?routeStatus={RouteStatus.Released}");
+        }
+
+        else if(OutboundPage == "departure")
+        {
+            Trucks = await _client.GetFromJsonAsync<List<Truck>>("/api/truck");
+            RouteHeaders = await _client.GetFromJsonAsync<List<RouteHeader>>($"/api/routeheader/filter?routeStatus={RouteStatus.Loaded}");
+        }
+    }
+
+
+    private void OnAttibuteClick(string attributeId) {
+        if(OutboundPage == "consolidation") {
+            _navigationManager.NavigateTo($"/outbound/consolidation/{attributeId}");
+        }
+
+        else if(OutboundPage == "loading") {
+            _navigationManager.NavigateTo($"/outbound/loading/{attributeId}");
+        }
+
+        else if(OutboundPage == "departure") {
+            _navigationManager.NavigateTo($"/outbound/departure/{attributeId}");
+        }
+        
+    }
+}

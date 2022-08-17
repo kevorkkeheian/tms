@@ -1,0 +1,13 @@
+@page "/outbound"
+@inject StateContainer _stateContainer
+
+
+
+@code {
+    
+    protected override void OnInitialized()
+    {
+        _stateContainer.Property = "warehouse";
+    }
+
+}

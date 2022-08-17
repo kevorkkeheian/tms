@@ -1,0 +1,110 @@
+@page "/org/trucks"
+@using System.Net.Http.Json
+@inject HttpClient _client
+@inject IJSRuntime _jsRuntime
+@inject ISnackbar Snackbar
+@inject NavigationManager _navigationManager
+@attribute [Authorize(Roles = "Admin")]
+
+
+<h4 class="mt-5">Trucks</h4>
+
+<MudPaper Elevation="25" Class="mb-2 mt-4">
+    <MudToolBar>
+        <MudText>
+            <Navigation />
+        </MudText>
+        <MudSpacer />
+        <MudIconButton Icon="@Icons.Material.Outlined.Add" OnClick='@(() => Navigate("org/trucks/add"))' />
+        <MudIconButton Icon="@Icons.Material.Outlined.MoreVert" Color="Color.Inherit" />
+    </MudToolBar>
+</MudPaper>
+
+<MudTable Items="@Trucks" Dense="@dense" Hover="@hover" Bordered="@bordered" Striped="@striped" Filter="new Func<Truck,bool>(FilterFunc1)" @bind-SelectedItem="selectedItem1">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Trucks</MudText>
+        <MudSpacer />
+        <MudTextField @bind-Value="searchString1" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh>Plate No</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Plate No">@context.PlateNo</MudTd>
+        <MudTd DataLabel="Action">
+            <MudIconButton Size="@Size.Small" Icon="@Icons.Material.Outlined.Edit" OnClick='@(() => Navigate($"org/trucks/{context.Id}/edit"))'/>
+            <MudIconButton Size="@Size.Small" Icon="@Icons.Material.Outlined.Delete" Color="Color.Inherit" OnClick="@(() => OnDeleteAsync(context.Id))" />
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+<div class="d-flex flex-wrap mt-4">
+    <div style="min-width:200px;">
+        <MudText Inline="true" Class="align-self-center">Selected1: @selectedItem1?.PlateNo</MudText>
+    </div>
+</div>
+
+
+
+@code {
+    [Parameter] public bool isSuccess { get; set; }
+    private bool dense = false;
+    private bool hover = true;
+    private bool striped = false;
+    private bool bordered = false;
+    private string searchString1 = "";
+    private Truck selectedItem1 = null;
+    private HashSet<Truck> selectedItems = new HashSet<Truck>();
+
+    private List<Truck> Trucks = new List<Truck>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Trucks = await _client.GetFromJsonAsync<List<Truck>>("api/truck");
+    }
+
+    private bool FilterFunc1(Truck Truck) => FilterFunc(Truck, searchString1);
+
+    private bool FilterFunc(Truck Truck, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (Truck.PlateNo.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+
+    private async void OnDeleteAsync(string id)
+    {
+        // prompt the user to confirm
+        var confirmResult = await _jsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this item?");
+            var truck = Trucks.FirstOrDefault(j => j.Id == id);
+
+        if(confirmResult) {
+            var request = await _client.DeleteAsync($"api/truck/{id}");
+
+            if(request.IsSuccessStatusCode) {
+                Snackbar.Add($"Job {truck.PlateNo} is deleted", Severity.Success);
+                Trucks.Remove(truck);
+                StateHasChanged();
+            }
+            else {
+                Snackbar.Add($"Truck is not deleted", Severity.Error);
+            }
+        }
+        else {
+            Snackbar.Add($"Operation was canceled", Severity.Info);
+        }
+        
+    }
+
+
+    private void Navigate(string url)
+    {
+        _navigationManager.NavigateTo(url);
+    }
+}
